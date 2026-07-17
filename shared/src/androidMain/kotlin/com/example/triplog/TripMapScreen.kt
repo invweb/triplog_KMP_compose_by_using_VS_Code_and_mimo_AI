@@ -4,9 +4,11 @@ import android.annotation.SuppressLint
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 
 private const val BASE_URL = "https://www.openstreetmap.org"
@@ -41,8 +43,8 @@ actual fun TripMapScreen(trips: List<Trip>) {
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-            <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-            <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
             <style>
                 html, body { margin: 0; padding: 0; height: 100%; width: 100%; }
                 #map { height: 100%; width: 100%; }
@@ -53,7 +55,7 @@ actual fun TripMapScreen(trips: List<Trip>) {
             <script>
                 var map = L.map('map').setView([$avgLat, $avgLng], 5);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap contributors'
+                    attribution: '&copy; OpenStreetMap contributors'
                 }).addTo(map);
                 var markers = [$markersJs];
                 markers.forEach(function(m) {
@@ -71,7 +73,7 @@ actual fun TripMapScreen(trips: List<Trip>) {
 
     AndroidView(
         factory = { ctx -> createWebView(ctx, html) },
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxWidth().height(400.dp),
         update = { webView ->
             webView.loadDataWithBaseURL(BASE_URL, html, "text/html", "UTF-8", null)
         }
