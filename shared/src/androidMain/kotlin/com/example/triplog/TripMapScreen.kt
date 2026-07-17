@@ -22,7 +22,6 @@ actual fun TripMapScreen(trips: List<Trip>) {
     var centered by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        MapKitFactory.initialize(context)
         MapKitFactory.getInstance().onStart()
     }
 

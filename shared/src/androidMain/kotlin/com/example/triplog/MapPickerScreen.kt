@@ -6,8 +6,12 @@ import android.location.LocationManager
 import android.os.Bundle
 import android.os.Looper
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -56,16 +60,14 @@ actual fun MapPickerScreen(
 
     var selectedLat by remember { mutableStateOf(startLat) }
     var selectedLng by remember { mutableStateOf(startLng) }
+    var gpsLat by remember { mutableDoubleStateOf(startLat) }
+    var gpsLng by remember { mutableDoubleStateOf(startLng) }
     var gpsReady by remember { mutableStateOf(false) }
 
     val stateHolder = remember { PickerStateHolder() }
     stateHolder.onLocationPicked = { lat, lng ->
         selectedLat = lat
         selectedLng = lng
-    }
-
-    LaunchedEffect(Unit) {
-        MapKitFactory.initialize(context)
     }
 
     val mapView = remember {
@@ -90,6 +92,8 @@ actual fun MapPickerScreen(
 
                 locationManager.requestSingleUpdate(provider, object : android.location.LocationListener {
                     override fun onLocationChanged(location: android.location.Location) {
+                        gpsLat = location.latitude
+                        gpsLng = location.longitude
                         stateHolder.onLocationPicked(location.latitude, location.longitude)
                         mapView.mapWindow.map.move(
                             CameraPosition(Point(location.latitude, location.longitude), 14.0f, 0.0f, 0.0f)
@@ -104,6 +108,8 @@ actual fun MapPickerScreen(
             } catch (_: SecurityException) {
             }
         } else {
+            gpsLat = lastLocation.first
+            gpsLng = lastLocation.second
             gpsReady = true
         }
     }
@@ -144,32 +150,46 @@ actual fun MapPickerScreen(
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
             AndroidView(
                 factory = { mapView },
-                modifier = Modifier.fillMaxWidth().weight(1f)
+                modifier = Modifier.fillMaxSize()
             )
 
-            Surface(tonalElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {
+            if (gpsReady) {
+                FloatingActionButton(
+                    onClick = {
+                        stateHolder.onLocationPicked(gpsLat, gpsLng)
+                        mapView.mapWindow.map.move(
+                            CameraPosition(Point(gpsLat, gpsLng), 14.0f, 0.0f, 0.0f)
+                        )
+                    },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(16.dp),
+                    shape = CircleShape,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Icon(Icons.Default.LocationOn, contentDescription = "My location")
+                }
+            }
+
+            Surface(
+                tonalElevation = 3.dp,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+            ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         "Lat: ${String.format("%.6f", selectedLat)}  Lng: ${String.format("%.6f", selectedLng)}",
                         style = MaterialTheme.typography.bodyMedium
                     )
-                    if (!gpsReady) {
-                        Text(
-                            "Determining your location...",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    } else {
-                        Text(
-                            if (lastLocation != null) "Last selected location loaded. Drag to adjust."
-                            else "Drag the map to select a location",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Text(
+                        "Tap map or drag to select. Use  button for GPS.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     Spacer(modifier = Modifier.height(4.dp))
                     Button(
                         onClick = {
