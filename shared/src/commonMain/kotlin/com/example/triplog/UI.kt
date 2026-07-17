@@ -184,17 +184,12 @@ fun AddTripScreen(
     var showStartPicker by remember { mutableStateOf(false) }
     var showEndPicker by remember { mutableStateOf(false) }
 
-    val cities = remember {
-        val json = loadAsset("cities.json")
-        CityRepository.loadCities(json)
-    }
-
     val filteredCities = remember(cityQuery) {
-        if (cityQuery.isBlank()) cities
-        else cities.filter {
+        if (cityQuery.isBlank()) emptyList()
+        else WORLD_CITIES.filter {
             it.city.contains(cityQuery, ignoreCase = true) ||
             it.country.contains(cityQuery, ignoreCase = true)
-        }.take(20)
+        }.take(15)
     }
 
     val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
@@ -284,10 +279,11 @@ fun AddTripScreen(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 200.dp)
+                        .heightIn(max = 250.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                 ) {
-                    LazyColumn {
-                        items(filteredCities) { c ->
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                        filteredCities.forEach { c ->
                             ListItem(
                                 headlineContent = { Text("${c.city}, ${c.country}") },
                                 modifier = Modifier.clickable {

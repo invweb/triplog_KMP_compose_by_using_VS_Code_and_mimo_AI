@@ -28,7 +28,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         MapKitFactory.setApiKey(BuildConfig.MAPKIT_API_KEY)
         MapKitFactory.initialize(this)
-        TripLogApp.context = this
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
 
