@@ -1,19 +1,26 @@
 package com.example.triplog
 
-import android.annotation.SuppressLint
-import android.content.Context
-import android.webkit.JavascriptInterface
-import android.webkit.WebSettings
-import android.webkit.WebView
-import android.webkit.WebViewClient
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas as AndroidCanvas
+import android.graphics.Paint
+import android.graphics.Color
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
-import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.net.URL
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,56 +30,61 @@ actual fun MapPickerScreen(
     onConfirm: (lat: Double, lng: Double) -> Unit,
     onCancel: () -> Unit
 ) {
-    val context = LocalContext.current
     var selectedLat by remember { mutableStateOf(initialLat) }
     var selectedLng by remember { mutableStateOf(initialLng) }
-    val stateHolder = remember { MapPickerStateHolder() }
+    var bitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var mapSize by remember { mutableStateOf(IntSize.Zero) }
+    val zoom = 12
+    val tileSize = 256
+    val n = Math.pow(2.0, zoom.toDouble())
+
+    val centerLat by remember { mutableStateOf(initialLat) }
+    val centerLng by remember { mutableStateOf(initialLng) }
+
+    val cols = 3
+    val rows = 3
+    val clatRad = Math.toRadians(centerLat)
+    val cx = ((centerLng + 180) / 360 * n).toInt()
+    val cy = ((1 - Math.log(Math.tan(clatRad) + 1 / Math.cos(clatRad)) / Math.PI) / 2 * n).toInt()
+    val startX = cx - cols / 2
+    val startY = cy - rows / 2
 
     LaunchedEffect(Unit) {
-        stateHolder.onLocationSelected = { lat, lng ->
-            selectedLat = lat
-            selectedLng = lng
+        withContext(Dispatchers.IO) {
+            try {
+                val combined = Bitmap.createBitmap(tileSize * cols, tileSize * rows, Bitmap.Config.ARGB_8888)
+                val canvas = AndroidCanvas(combined)
+                for (row in 0 until rows) {
+                    for (col in 0 until cols) {
+                        val url = URL("https://tile.openstreetmap.org/$zoom/${startX + col}/${startY + row}.png")
+                        val conn = url.openConnection()
+                        conn.connectTimeout = 5000
+                        conn.readTimeout = 5000
+                        val tile = BitmapFactory.decodeStream(conn.getInputStream())
+                        conn.getInputStream().close()
+                        if (tile != null) {
+                            canvas.drawBitmap(tile, (col * tileSize).toFloat(), (row * tileSize).toFloat(), null)
+                            tile.recycle()
+                        }
+                    }
+                }
+                bitmap = combined
+            } catch (_: Exception) {
+            }
         }
     }
 
-    val html = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-            <style>
-                html, body { margin: 0; padding: 0; height: 100%; width: 100%; }
-                #map { height: 100%; width: 100%; }
-            </style>
-        </head>
-        <body>
-            <div id="map"></div>
-            <script>
-                var map = L.map('map').setView([$initialLat, $initialLng], 12);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap contributors'
-                }).addTo(map);
-                var marker = L.marker([$initialLat, $initialLng]).addTo(map);
-                map.on('click', function(e) {
-                    marker.setLatLng(e.latlng);
-                    window.AndroidBridge.onLocationSelected(e.latlng.lat, e.latlng.lng);
-                });
-            </script>
-        </body>
-        </html>
-    """.trimIndent()
-
-    val webViewRef = remember { mutableStateOf<WebView?>(null) }
-
-    DisposableEffect(context) {
-        val webView = createPickerWebView(context, stateHolder)
-        webViewRef.value = webView
-        onDispose {
-            webView.destroy()
-        }
+    fun pixelToLatLng(px: Float, py: Float, viewWidth: Int, viewHeight: Int): Pair<Double, Double> {
+        val mapWidth = tileSize * cols
+        val mapHeight = tileSize * rows
+        val mapPx = px / viewWidth * mapWidth
+        val mapPy = py / viewHeight * mapHeight
+        val lngDelta = (mapPx - mapWidth / 2) / tileSize / n * 360
+        val latDelta = -(mapPy - mapHeight / 2) / tileSize / n * 180 / Math.PI
+        val latRad = Math.toRadians(centerLat) + latDelta
+        val lat = Math.toDegrees(Math.atan(Math.sinh(latRad)))
+        val lng = centerLng + lngDelta
+        return Pair(lat, lng)
     }
 
     Scaffold(
@@ -88,75 +100,54 @@ actual fun MapPickerScreen(
         }
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
+            modifier = Modifier.fillMaxSize().padding(padding)
         ) {
-            val wv = webViewRef.value
-            if (wv != null) {
-                AndroidView(
-                    factory = { wv },
+            val bmp = bitmap
+            if (bmp != null) {
+                val density = LocalDensity.current
+                Image(
+                    bitmap = bmp.asImageBitmap(),
+                    contentDescription = "Map - tap to select",
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f),
-                    update = { webView ->
-                        val file = File(context.cacheDir, "triplog_picker.html")
-                        file.writeText(html)
-                        webView.loadUrl("file://${file.absolutePath}")
-                    }
+                        .weight(1f)
+                        .onSizeChanged { mapSize = it }
+                        .pointerInput(Unit) {
+                            awaitPointerEventScope {
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val down = event.changes.firstOrNull()
+                                    if (down != null && down.pressed) {
+                                        val (lat, lng) = pixelToLatLng(
+                                            down.position.x, down.position.y,
+                                            mapSize.width, mapSize.height
+                                        )
+                                        selectedLat = lat
+                                        selectedLng = lng
+                                    }
+                                }
+                            }
+                        }
                 )
+            } else {
+                Box(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
             }
 
-            Surface(
-                tonalElevation = 3.dp,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "Lat: ${String.format("%.6f", selectedLat)}  Lng: ${String.format("%.6f", selectedLng)}",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text(
-                        text = "Tap on the map to select a location",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+            Surface(tonalElevation = 3.dp, modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Lat: ${String.format("%.6f", selectedLat)}  Lng: ${String.format("%.6f", selectedLng)}", style = MaterialTheme.typography.bodyMedium)
+                    Text("Tap on the map to select a location", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(4.dp))
-                    Button(
-                        onClick = { onConfirm(selectedLat, selectedLng) },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+                    Button(onClick = { onConfirm(selectedLat, selectedLng) }, modifier = Modifier.fillMaxWidth()) {
                         Text("Confirm location")
                     }
                 }
             }
         }
-    }
-}
-
-private fun createPickerWebView(context: Context, stateHolder: MapPickerStateHolder): WebView {
-    return WebView(context).apply {
-        settings.javaScriptEnabled = true
-        settings.domStorageEnabled = true
-        settings.setSupportZoom(true)
-        settings.builtInZoomControls = true
-        settings.displayZoomControls = false
-        settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-        settings.allowFileAccess = true
-        settings.userAgentString = settings.userAgentString.replace("; wv", "")
-        webViewClient = WebViewClient()
-        addJavascriptInterface(stateHolder, "AndroidBridge")
-    }
-}
-
-class MapPickerStateHolder {
-    var onLocationSelected: (Double, Double) -> Unit = { _, _ -> }
-
-    @JavascriptInterface
-    fun onLocationSelected(lat: Double, lng: Double) {
-        onLocationSelected(lat, lng)
     }
 }

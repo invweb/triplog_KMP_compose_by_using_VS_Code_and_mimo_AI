@@ -1,107 +1,139 @@
 package com.example.triplog
 
-import android.annotation.SuppressLint
-import android.content.Context
-import android.webkit.WebSettings
-import android.webkit.WebView
-import android.webkit.WebViewClient
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas as AndroidCanvas
+import android.graphics.Paint
+import android.graphics.Color
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
-import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.net.URL
+
+private fun latLngToTile(lat: Double, lng: Double, zoom: Int): Triple<Int, Int, Double> {
+    val n = Math.pow(2.0, zoom.toDouble())
+    val x = ((lng + 180) / 360 * n).toInt()
+    val latRad = Math.toRadians(lat)
+    val y = ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n).toInt()
+    val xFrac = (lng + 180) / 360 * n - x
+    val yFrac = (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n - y
+    return Triple(x, y, 0.0)
+}
+
+private fun latLngToPixel(lat: Double, lng: Double, zoom: Int, mapWidth: Int, mapHeight: Int, centerLat: Double, centerLng: Double): Pair<Int, Int> {
+    val tileSize = 256
+    val n = Math.pow(2.0, zoom.toDouble())
+    val cx = (lng + 180) / 360 * n
+    val latRad = Math.toRadians(lat)
+    val cy = (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n
+    val clatRad = Math.toRadians(centerLat)
+    val ccx = (centerLng + 180) / 360 * n
+    val ccy = (1 - Math.log(Math.tan(clatRad) + 1 / Math.cos(clatRad)) / Math.PI) / 2 * n
+    val px = (mapWidth / 2 + (cx - ccx) * tileSize).toInt()
+    val py = (mapHeight / 2 + (cy - ccy) * tileSize).toInt()
+    return Pair(px, py)
+}
 
 @Composable
 actual fun TripMapScreen(trips: List<Trip>) {
     val context = LocalContext.current
-    val markersJs = trips.joinToString(",") { trip ->
-        "[${trip.lat},${trip.lng},\"${trip.title.replace("\"", "\\\"")}\",\"${trip.city.replace("\"", "\\\"")}\"]"
-    }
+    var bitmap by remember { mutableStateOf<Bitmap?>(null) }
+    val zoom = 5
 
-    val avgLat = if (trips.isNotEmpty()) trips.map { it.lat }.average() else 55.75
-    val avgLng = if (trips.isNotEmpty()) trips.map { it.lng }.average() else 37.62
+    val centerLat = if (trips.isNotEmpty()) trips.map { it.lat }.average() else 55.75
+    val centerLng = if (trips.isNotEmpty()) trips.map { it.lng }.average() else 37.62
 
-    val html = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-            <style>
-                html, body { margin: 0; padding: 0; height: 100%; width: 100%; }
-                #map { height: 100%; width: 100%; }
-                #status { position: absolute; top: 8px; left: 8px; z-index: 9999; background: rgba(255,255,255,0.9); padding: 4px 8px; border-radius: 4px; font-size: 12px; }
-            </style>
-        </head>
-        <body>
-            <div id="status">Loading map...</div>
-            <div id="map"></div>
-            <script>
-                try {
-                    document.getElementById('status').innerText = 'Initializing...';
-                    var map = L.map('map').setView([$avgLat, $avgLng], 5);
-                    document.getElementById('status').innerText = 'Loading tiles...';
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                        attribution: '&copy; OpenStreetMap contributors'
-                    }).addTo(map);
-                    var markers = [$markersJs];
-                    markers.forEach(function(m) {
-                        L.marker([m[0], m[1]]).addTo(map)
-                            .bindPopup('<b>' + m[2] + '</b><br>' + m[3]);
-                    });
-                    if (markers.length > 0) {
-                        var bounds = L.latLngBounds(markers.map(function(m) { return [m[0], m[1]]; }));
-                        map.fitBounds(bounds, { padding: [50, 50] });
+    val tileSize = 256
+    val n = Math.pow(2.0, zoom.toDouble())
+    val cx = ((centerLng + 180) / 360 * n).toInt()
+    val clatRad = Math.toRadians(centerLat)
+    val cy = ((1 - Math.log(Math.tan(clatRad) + 1 / Math.cos(clatRad)) / Math.PI) / 2 * n).toInt()
+
+    val cols = 3
+    val rows = 3
+    val startX = cx - cols / 2
+    val startY = cy - rows / 2
+
+    LaunchedEffect(centerLat, centerLng) {
+        withContext(Dispatchers.IO) {
+            try {
+                val combined = Bitmap.createBitmap(tileSize * cols, tileSize * rows, Bitmap.Config.ARGB_8888)
+                val canvas = AndroidCanvas(combined)
+
+                for (row in 0 until rows) {
+                    for (col in 0 until cols) {
+                        val tx = startX + col
+                        val ty = startY + row
+                        val url = URL("https://tile.openstreetmap.org/$zoom/$tx/$ty.png")
+                        val conn = url.openConnection()
+                        conn.connectTimeout = 5000
+                        conn.readTimeout = 5000
+                        val stream = conn.getInputStream()
+                        val tile = BitmapFactory.decodeStream(stream)
+                        stream.close()
+                        if (tile != null) {
+                            canvas.drawBitmap(tile, (col * tileSize).toFloat(), (row * tileSize).toFloat(), null)
+                            tile.recycle()
+                        }
                     }
-                    document.getElementById('status').innerText = 'Map ready!';
-                    setTimeout(function(){ document.getElementById('status').style.display='none'; }, 2000);
-                } catch(e) {
-                    document.getElementById('status').innerText = 'Error: ' + e.message;
                 }
-            </script>
-        </body>
-        </html>
-    """.trimIndent()
 
-    val webViewRef = remember { mutableStateOf<WebView?>(null) }
+                val markerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.RED
+                    style = Paint.Style.FILL
+                }
+                val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.WHITE
+                    style = Paint.Style.STROKE
+                    strokeWidth = 3f
+                }
+                val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.WHITE
+                    textSize = 24f
+                    textAlign = Paint.Align.CENTER
+                    isFakeBoldText = true
+                }
 
-    DisposableEffect(context) {
-        val webView = createWebView(context)
-        webViewRef.value = webView
-        onDispose {
-            webView.destroy()
+                val mapWidth = tileSize * cols
+                val mapHeight = tileSize * rows
+
+                trips.forEachIndexed { index, trip ->
+                    val px = (mapWidth / 2 + ((trip.lng + 180) / 360 * n - (centerLng + 180) / 360 * n) * tileSize).toInt()
+                    val latRad2 = Math.toRadians(trip.lat)
+                    val cLatRad2 = Math.toRadians(centerLat)
+                    val py = (mapHeight / 2 + ((1 - Math.log(Math.tan(latRad2) + 1 / Math.cos(latRad2)) / Math.PI) / 2 * n - (1 - Math.log(Math.tan(cLatRad2) + 1 / Math.cos(cLatRad2)) / Math.PI) / 2 * n) * tileSize).toInt()
+
+                    canvas.drawCircle(px.toFloat(), py.toFloat(), 18f, borderPaint)
+                    canvas.drawCircle(px.toFloat(), py.toFloat(), 15f, markerPaint)
+                    canvas.drawText("${index + 1}", px.toFloat(), py.toFloat() + 8f, textPaint)
+                }
+
+                bitmap = combined
+            } catch (_: Exception) {
+            }
         }
     }
 
-    val wv = webViewRef.value
-    if (wv != null) {
-        AndroidView(
-            factory = { wv },
-            modifier = Modifier.fillMaxWidth().height(400.dp),
-            update = { webView ->
-                val file = File(context.cacheDir, "triplog_map.html")
-                file.writeText(html)
-                webView.loadUrl("file://${file.absolutePath}")
-            }
+    val bmp = bitmap
+    if (bmp != null) {
+        Image(
+            bitmap = bmp.asImageBitmap(),
+            contentDescription = "Trip map",
+            modifier = Modifier.fillMaxWidth().height(400.dp)
         )
-    }
-}
-
-private fun createWebView(context: Context): WebView {
-    return WebView(context).apply {
-        settings.javaScriptEnabled = true
-        settings.domStorageEnabled = true
-        settings.setSupportZoom(true)
-        settings.builtInZoomControls = true
-        settings.displayZoomControls = false
-        settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-        settings.allowFileAccess = true
-        settings.userAgentString = settings.userAgentString.replace("; wv", "")
-        webViewClient = WebViewClient()
+    } else {
+        androidx.compose.foundation.layout.Box(
+            modifier = Modifier.fillMaxWidth().height(400.dp),
+            contentAlignment = androidx.compose.ui.Alignment.Center
+        ) {
+            androidx.compose.material3.CircularProgressIndicator()
+        }
     }
 }
