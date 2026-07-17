@@ -13,7 +13,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import com.yandex.mapkit.MapKitFactory
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -26,8 +25,6 @@ class MainActivity : ComponentActivity() {
     ) { _ -> }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        MapKitFactory.setApiKey(BuildConfig.MAPKIT_API_KEY)
-        MapKitFactory.initialize(this)
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
 

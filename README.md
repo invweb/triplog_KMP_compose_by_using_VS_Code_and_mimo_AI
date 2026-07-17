@@ -20,6 +20,23 @@ Kotlin Multiplatform (KMP) travel diary app with cross-platform UI on Compose Mu
 - **Splash Screen** — AndroidX Core Splash Screen API
 - **Last Location Memory** — saves last selected location, restores on next open
 - **Delete Confirmation** — AlertDialog before deleting a trip
+- **City Picker** — 200+ popular world cities with search, auto-fills lat/lng
+
+---
+
+## Screenshots
+
+| Main Screen | Add Trip | City Picker |
+|-------------|----------|-------------|
+| ![Main](screenshots/01_main.png) | ![Add Trip](screenshots/02_add_trip.png) | ![City Dropdown](screenshots/03_city_dropdown.png) |
+
+| Date Picker | City Selected | Map Picker |
+|-------------|---------------|------------|
+| ![Date Picker](screenshots/05_date_picker.png) | ![City Selected](screenshots/04_city_selected.png) | ![Map Picker](screenshots/08_map_picker.png) |
+
+| Trip Details with Map |
+|-----------------------|
+| ![Trip Details](screenshots/02_detail.png) |
 
 ---
 
