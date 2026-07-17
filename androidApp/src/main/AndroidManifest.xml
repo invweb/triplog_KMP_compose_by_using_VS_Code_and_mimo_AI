@@ -15,7 +15,7 @@
             android:name="com.example.triplog.MainActivity"
             android:exported="true"
             android:label="TripLog"
-            android:theme="@android:style/Theme.Material.Light.NoActionBar">
+            android:theme="@style/Theme.TripLog.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
