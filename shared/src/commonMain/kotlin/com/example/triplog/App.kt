@@ -1,0 +1,53 @@
+package com.example.triplog
+
+import androidx.compose.runtime.*
+
+sealed class Screen {
+    data object List : Screen()
+    data class Detail(val index: Int) : Screen()
+    data object Add : Screen()
+    data object Settings : Screen()
+}
+
+@Composable
+fun TripLogApp(
+    trips: List<Trip>,
+    onAddTrip: (Trip) -> Unit
+) {
+    var currentScreen by remember { mutableStateOf<Screen>(Screen.List) }
+
+    when (val screen = currentScreen) {
+        is Screen.List -> {
+            TripListScreen(
+                trips = trips,
+                onTripClick = { trip ->
+                    val index = trips.indexOf(trip)
+                    currentScreen = Screen.Detail(index)
+                },
+                onAddTrip = { currentScreen = Screen.Add }
+            )
+        }
+        is Screen.Detail -> {
+            if (screen.index in trips.indices) {
+                TripDetailScreen(
+                    trip = trips[screen.index],
+                    onBack = { currentScreen = Screen.List }
+                )
+            } else {
+                currentScreen = Screen.List
+            }
+        }
+        is Screen.Add -> {
+            AddTripScreen(
+                onSave = { trip ->
+                    onAddTrip(trip)
+                    currentScreen = Screen.List
+                },
+                onBack = { currentScreen = Screen.List }
+            )
+        }
+        is Screen.Settings -> {
+            SettingsScreen()
+        }
+    }
+}
