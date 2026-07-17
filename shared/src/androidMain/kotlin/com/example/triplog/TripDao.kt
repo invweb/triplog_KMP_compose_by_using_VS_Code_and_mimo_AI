@@ -10,6 +10,9 @@ interface TripDao {
     @Insert
     suspend fun insertTrip(trip: TripEntity)
 
+    @Query("DELETE FROM trips WHERE id = :id")
+    suspend fun deleteTrip(id: Int)
+
     @Query("SELECT * FROM trips ORDER BY id DESC")
     fun getAllTrips(): Flow<List<TripEntity>>
 }

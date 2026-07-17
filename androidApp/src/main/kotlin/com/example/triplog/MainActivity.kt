@@ -62,6 +62,11 @@ class MainActivity : ComponentActivity() {
                             scope.launch {
                                 repository.insertTrip(trip)
                             }
+                        },
+                        onDeleteTrip = { trip ->
+                            scope.launch {
+                                repository.deleteTrip(trip)
+                            }
                         }
                     )
                 }

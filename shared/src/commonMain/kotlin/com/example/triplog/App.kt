@@ -13,7 +13,8 @@ sealed class Screen {
 @Composable
 fun TripLogApp(
     trips: List<Trip>,
-    onAddTrip: (Trip) -> Unit
+    onAddTrip: (Trip) -> Unit,
+    onDeleteTrip: (Trip) -> Unit
 ) {
     var currentScreen by remember { mutableStateOf<Screen>(Screen.List) }
     var pendingLat by remember { mutableDoubleStateOf(59.9343) }
@@ -35,7 +36,11 @@ fun TripLogApp(
             if (screen.index in trips.indices) {
                 TripDetailScreen(
                     trip = trips[screen.index],
-                    onBack = { currentScreen = Screen.List }
+                    onBack = { currentScreen = Screen.List },
+                    onDelete = { trip ->
+                        onDeleteTrip(trip)
+                        currentScreen = Screen.List
+                    }
                 )
             } else {
                 currentScreen = Screen.List

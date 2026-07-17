@@ -104,6 +104,19 @@ class TripRepositoryImpl : TripRepository {
         }
     }
 
+    override suspend fun deleteTrip(trip: Trip) {
+        withContext(Dispatchers.IO) {
+            val dbFile = File(System.getProperty("user.home"), ".trip_log/trips.db")
+            getConnection(dbFile).use { connection ->
+                connection.prepareStatement("DELETE FROM trips WHERE id = ?").use { statement ->
+                    statement.setInt(1, trip.id)
+                    statement.executeUpdate()
+                }
+            }
+            _trips.value = _trips.value.filter { it.id != trip.id }
+        }
+    }
+
     override fun getAllTrips(): Flow<List<Trip>> {
         return trips
     }

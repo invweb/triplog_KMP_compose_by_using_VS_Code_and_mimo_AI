@@ -9,6 +9,10 @@ class TripRepositoryImpl(private val dao: TripDao) : TripRepository {
         dao.insertTrip(trip.toEntity())
     }
 
+    override suspend fun deleteTrip(trip: Trip) {
+        dao.deleteTrip(trip.id)
+    }
+
     override fun getAllTrips(): Flow<List<Trip>> {
         return dao.getAllTrips().map { entities ->
             entities.map { it.toDomain() }

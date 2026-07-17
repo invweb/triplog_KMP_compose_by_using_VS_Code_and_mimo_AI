@@ -31,6 +31,11 @@ fun main() = application {
                 scope.launch {
                     repository.insertTrip(trip)
                 }
+            },
+            onDeleteTrip = { trip ->
+                scope.launch {
+                    repository.deleteTrip(trip)
+                }
             }
         )
     }

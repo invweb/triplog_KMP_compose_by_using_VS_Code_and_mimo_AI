@@ -82,7 +82,7 @@ fun TripListScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TripDetailScreen(trip: Trip, onBack: () -> Unit) {
+fun TripDetailScreen(trip: Trip, onBack: () -> Unit, onDelete: (Trip) -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -90,6 +90,11 @@ fun TripDetailScreen(trip: Trip, onBack: () -> Unit) {
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Text("←", style = MaterialTheme.typography.titleLarge)
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { onDelete(trip) }) {
+                        Text("✕", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.titleLarge)
                     }
                 }
             )
@@ -310,7 +315,6 @@ fun AddTripScreen(
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
-            Spacer(modifier = Modifier.weight(1f))
             Button(
                 onClick = {
                     val sd = startDate
