@@ -129,11 +129,11 @@ actual fun TripMapScreen(trips: List<Trip>) {
             modifier = Modifier.fillMaxWidth().height(400.dp)
         )
     } else {
-        androidx.compose.foundation.layout.Box(
+            androidx.compose.foundation.layout.Box(
             modifier = Modifier.fillMaxWidth().height(400.dp),
             contentAlignment = androidx.compose.ui.Alignment.Center
         ) {
-            androidx.compose.material3.CircularProgressIndicator()
+            androidx.compose.material3.Text("Loading map...")
         }
     }
 }

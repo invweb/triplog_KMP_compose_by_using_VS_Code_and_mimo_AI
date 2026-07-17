@@ -134,7 +134,7 @@ actual fun MapPickerScreen(
                     modifier = Modifier.fillMaxWidth().weight(1f),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator()
+                    Text("Loading map...")
                 }
             }
 
