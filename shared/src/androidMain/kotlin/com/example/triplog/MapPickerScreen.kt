@@ -33,6 +33,12 @@ actual fun MapPickerScreen(
     var selectedLng by remember { mutableStateOf(initialLng) }
     var gpsReady by remember { mutableStateOf(false) }
 
+    val stateHolder = remember { PickerStateHolder() }
+    stateHolder.onLocationPicked = { lat, lng ->
+        selectedLat = lat
+        selectedLng = lng
+    }
+
     LaunchedEffect(Unit) {
         MapKitFactory.initialize(context)
     }
@@ -43,14 +49,11 @@ actual fun MapPickerScreen(
                 CameraPosition(Point(initialLat, initialLng), 12.0f, 0.0f, 0.0f)
             )
 
-            var placemark = mapWindow.map.mapObjects.addPlacemark(Point(initialLat, initialLng))
+            mapWindow.map.mapObjects.addPlacemark(Point(initialLat, initialLng))
 
             mapWindow.map.addInputListener(object : InputListener {
                 override fun onMapTap(map: Map, point: Point) {
-                    selectedLat = point.latitude
-                    selectedLng = point.longitude
-                    map.mapObjects.remove(placemark)
-                    placemark = map.mapObjects.addPlacemark(point)
+                    stateHolder.onLocationPicked(point.latitude, point.longitude)
                 }
                 override fun onMapLongTap(map: Map, point: Point) {}
             })
@@ -70,8 +73,7 @@ actual fun MapPickerScreen(
 
             locationManager.requestSingleUpdate(provider, object : android.location.LocationListener {
                 override fun onLocationChanged(location: android.location.Location) {
-                    selectedLat = location.latitude
-                    selectedLng = location.longitude
+                    stateHolder.onLocationPicked(location.latitude, location.longitude)
                     mapView.mapWindow.map.move(
                         CameraPosition(Point(location.latitude, location.longitude), 14.0f, 0.0f, 0.0f)
                     )
@@ -143,4 +145,8 @@ actual fun MapPickerScreen(
             }
         }
     }
+}
+
+private class PickerStateHolder {
+    var onLocationPicked: (Double, Double) -> Unit = { _, _ -> }
 }
