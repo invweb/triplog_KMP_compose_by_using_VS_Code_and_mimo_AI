@@ -2,6 +2,7 @@ package com.example.triplog
 
 import android.annotation.SuppressLint
 import android.webkit.JavascriptInterface
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.*
@@ -85,9 +86,11 @@ actual fun MapPickerScreen(
                         settings.setSupportZoom(true)
                         settings.builtInZoomControls = true
                         settings.displayZoomControls = false
+                        settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                        settings.userAgentString = settings.userAgentString.replace("; wv", "")
                         webViewClient = WebViewClient()
                         addJavascriptInterface(stateHolder, "AndroidBridge")
-                        loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
+                        loadDataWithBaseURL("https://www.openstreetmap.org", html, "text/html", "UTF-8", null)
                     }
                 },
                 modifier = Modifier

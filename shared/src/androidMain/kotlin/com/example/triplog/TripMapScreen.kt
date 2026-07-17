@@ -1,12 +1,15 @@
 package com.example.triplog
 
 import android.annotation.SuppressLint
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+
+private const val BASE_URL = "https://www.openstreetmap.org"
 
 @SuppressLint("SetJavaScriptEnabled")
 private fun createWebView(ctx: android.content.Context, html: String): WebView {
@@ -16,8 +19,10 @@ private fun createWebView(ctx: android.content.Context, html: String): WebView {
         settings.setSupportZoom(true)
         settings.builtInZoomControls = true
         settings.displayZoomControls = false
+        settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+        settings.userAgentString = settings.userAgentString.replace("; wv", "")
         webViewClient = WebViewClient()
-        loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
+        loadDataWithBaseURL(BASE_URL, html, "text/html", "UTF-8", null)
     }
 }
 
@@ -68,7 +73,7 @@ actual fun TripMapScreen(trips: List<Trip>) {
         factory = { ctx -> createWebView(ctx, html) },
         modifier = Modifier.fillMaxSize(),
         update = { webView ->
-            webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
+            webView.loadDataWithBaseURL(BASE_URL, html, "text/html", "UTF-8", null)
         }
     )
 }
