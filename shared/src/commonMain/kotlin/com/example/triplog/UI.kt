@@ -173,6 +173,8 @@ fun AddTripScreen(
 ) {
     var title by remember { mutableStateOf("") }
     var city by remember { mutableStateOf("") }
+    var cityQuery by remember { mutableStateOf("") }
+    var showCityDropdown by remember { mutableStateOf(false) }
     var startDate by remember { mutableStateOf<LocalDate?>(null) }
     var endDate by remember { mutableStateOf<LocalDate?>(null) }
     var notes by remember { mutableStateOf("") }
@@ -181,6 +183,19 @@ fun AddTripScreen(
     var showError by remember { mutableStateOf(false) }
     var showStartPicker by remember { mutableStateOf(false) }
     var showEndPicker by remember { mutableStateOf(false) }
+
+    val cities = remember {
+        val json = loadAsset("cities.json")
+        CityRepository.loadCities(json)
+    }
+
+    val filteredCities = remember(cityQuery) {
+        if (cityQuery.isBlank()) cities
+        else cities.filter {
+            it.city.contains(cityQuery, ignoreCase = true) ||
+            it.country.contains(cityQuery, ignoreCase = true)
+        }.take(20)
+    }
 
     val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
 
@@ -255,11 +270,38 @@ fun AddTripScreen(
                 modifier = Modifier.fillMaxWidth()
             )
             OutlinedTextField(
-                value = city,
-                onValueChange = { city = it },
+                value = cityQuery,
+                onValueChange = {
+                    cityQuery = it
+                    showCityDropdown = true
+                    city = it
+                },
                 label = { Text("City") },
                 modifier = Modifier.fillMaxWidth()
             )
+
+            if (showCityDropdown && filteredCities.isNotEmpty()) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 200.dp)
+                ) {
+                    LazyColumn {
+                        items(filteredCities) { c ->
+                            ListItem(
+                                headlineContent = { Text("${c.city}, ${c.country}") },
+                                modifier = Modifier.clickable {
+                                    city = c.city
+                                    cityQuery = c.city
+                                    lat = c.lat
+                                    lng = c.lng
+                                    showCityDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
             OutlinedTextField(
                 value = startDate?.toString() ?: "",
                 onValueChange = {},
