@@ -1,6 +1,10 @@
 package com.example.triplog
 
 import android.annotation.SuppressLint
+import android.content.Context
+import android.location.LocationManager
+import android.os.Bundle
+import android.os.Looper
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,6 +31,7 @@ actual fun MapPickerScreen(
     val context = LocalContext.current
     var selectedLat by remember { mutableStateOf(initialLat) }
     var selectedLng by remember { mutableStateOf(initialLng) }
+    var gpsReady by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         MapKitFactory.initialize(context)
@@ -47,10 +52,35 @@ actual fun MapPickerScreen(
                     map.mapObjects.remove(placemark)
                     placemark = map.mapObjects.addPlacemark(point)
                 }
-
                 override fun onMapLongTap(map: Map, point: Point) {}
             })
         }
+    }
+
+    LaunchedEffect(Unit) {
+        val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        val provider = locationManager.getBestProvider(
+            android.location.Criteria().apply {
+                accuracy = android.location.Criteria.ACCURACY_FINE
+                isCostAllowed = false
+            },
+            true
+        ) ?: LocationManager.GPS_PROVIDER
+
+        locationManager.requestSingleUpdate(provider, object : android.location.LocationListener {
+            override fun onLocationChanged(location: android.location.Location) {
+                selectedLat = location.latitude
+                selectedLng = location.longitude
+                mapView.mapWindow.map.move(
+                    CameraPosition(Point(location.latitude, location.longitude), 14.0f, 0.0f, 0.0f)
+                )
+                gpsReady = true
+            }
+            @Deprecated("Deprecated")
+            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+            override fun onProviderEnabled(provider: String) {}
+            override fun onProviderDisabled(provider: String) {}
+        }, Looper.getMainLooper())
     }
 
     DisposableEffect(mapView) {
@@ -86,11 +116,19 @@ actual fun MapPickerScreen(
                         "Lat: ${String.format("%.6f", selectedLat)}  Lng: ${String.format("%.6f", selectedLng)}",
                         style = MaterialTheme.typography.bodyMedium
                     )
-                    Text(
-                        "Tap on the map to select a location",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    if (!gpsReady) {
+                        Text(
+                            "Determining your location...",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    } else {
+                        Text(
+                            "Your location detected. Tap map to adjust.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     Spacer(modifier = Modifier.height(4.dp))
                     Button(
                         onClick = { onConfirm(selectedLat, selectedLng) },

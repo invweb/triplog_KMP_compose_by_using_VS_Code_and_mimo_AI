@@ -146,8 +146,8 @@ fun AddTripScreen(
     var startDate by remember { mutableStateOf<LocalDate?>(null) }
     var endDate by remember { mutableStateOf<LocalDate?>(null) }
     var notes by remember { mutableStateOf("") }
-    var lat by remember { mutableDoubleStateOf(0.0) }
-    var lng by remember { mutableDoubleStateOf(0.0) }
+    var lat by remember { mutableDoubleStateOf(59.9343) }
+    var lng by remember { mutableDoubleStateOf(30.3351) }
     var showError by remember { mutableStateOf(false) }
     var showStartPicker by remember { mutableStateOf(false) }
     var showEndPicker by remember { mutableStateOf(false) }

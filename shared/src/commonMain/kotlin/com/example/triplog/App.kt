@@ -16,8 +16,8 @@ fun TripLogApp(
     onAddTrip: (Trip) -> Unit
 ) {
     var currentScreen by remember { mutableStateOf<Screen>(Screen.List) }
-    var pendingLat by remember { mutableDoubleStateOf(0.0) }
-    var pendingLng by remember { mutableDoubleStateOf(0.0) }
+    var pendingLat by remember { mutableDoubleStateOf(59.9343) }
+    var pendingLng by remember { mutableDoubleStateOf(30.3351) }
     var mapPickerCallback by remember { mutableStateOf<((Double, Double) -> Unit)?>(null) }
 
     when (val screen = currentScreen) {
