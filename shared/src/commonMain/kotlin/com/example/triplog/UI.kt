@@ -136,14 +136,18 @@ fun TripDetailScreen(trip: Trip, onBack: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddTripScreen(onSave: (Trip) -> Unit, onBack: () -> Unit) {
+fun AddTripScreen(
+    onSave: (Trip) -> Unit,
+    onBack: () -> Unit,
+    onOpenMapPicker: (initialLat: Double, initialLng: Double, callback: (Double, Double) -> Unit) -> Unit
+) {
     var title by remember { mutableStateOf("") }
     var city by remember { mutableStateOf("") }
     var startDate by remember { mutableStateOf<LocalDate?>(null) }
     var endDate by remember { mutableStateOf<LocalDate?>(null) }
     var notes by remember { mutableStateOf("") }
-    var lat by remember { mutableStateOf("") }
-    var lng by remember { mutableStateOf("") }
+    var lat by remember { mutableDoubleStateOf(0.0) }
+    var lng by remember { mutableDoubleStateOf(0.0) }
     var showError by remember { mutableStateOf(false) }
     var showStartPicker by remember { mutableStateOf(false) }
     var showEndPicker by remember { mutableStateOf(false) }
@@ -256,17 +260,42 @@ fun AddTripScreen(onSave: (Trip) -> Unit, onBack: () -> Unit) {
                 )
             )
             OutlinedTextField(
-                value = lat,
-                onValueChange = { lat = it },
+                value = String.format("%.6f", lat),
+                onValueChange = {},
+                readOnly = true,
                 label = { Text("Latitude") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                enabled = false,
+                colors = OutlinedTextFieldDefaults.colors(
+                    disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                    disabledBorderColor = MaterialTheme.colorScheme.outline,
+                    disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             )
             OutlinedTextField(
-                value = lng,
-                onValueChange = { lng = it },
+                value = String.format("%.6f", lng),
+                onValueChange = {},
+                readOnly = true,
                 label = { Text("Longitude") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                enabled = false,
+                colors = OutlinedTextFieldDefaults.colors(
+                    disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                    disabledBorderColor = MaterialTheme.colorScheme.outline,
+                    disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             )
+            OutlinedButton(
+                onClick = {
+                    onOpenMapPicker(lat, lng) { newLat, newLng ->
+                        lat = newLat
+                        lng = newLng
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Select on map")
+            }
             OutlinedTextField(
                 value = notes,
                 onValueChange = { notes = it },
@@ -294,8 +323,8 @@ fun AddTripScreen(onSave: (Trip) -> Unit, onBack: () -> Unit) {
                                 startDate = sd,
                                 endDate = ed,
                                 notes = notes,
-                                lat = lat.toDoubleOrNull() ?: 0.0,
-                                lng = lng.toDoubleOrNull() ?: 0.0
+                                lat = lat,
+                                lng = lng
                             )
                         )
                     } else {

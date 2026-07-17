@@ -6,6 +6,7 @@ sealed class Screen {
     data object List : Screen()
     data class Detail(val index: Int) : Screen()
     data object Add : Screen()
+    data class MapPicker(val callbackId: Int) : Screen()
     data object Settings : Screen()
 }
 
@@ -15,6 +16,9 @@ fun TripLogApp(
     onAddTrip: (Trip) -> Unit
 ) {
     var currentScreen by remember { mutableStateOf<Screen>(Screen.List) }
+    var pendingLat by remember { mutableDoubleStateOf(0.0) }
+    var pendingLng by remember { mutableDoubleStateOf(0.0) }
+    var mapPickerCallback by remember { mutableStateOf<((Double, Double) -> Unit)?>(null) }
 
     when (val screen = currentScreen) {
         is Screen.List -> {
@@ -43,7 +47,28 @@ fun TripLogApp(
                     onAddTrip(trip)
                     currentScreen = Screen.List
                 },
-                onBack = { currentScreen = Screen.List }
+                onBack = { currentScreen = Screen.List },
+                onOpenMapPicker = { initialLat, initialLng, callback ->
+                    pendingLat = initialLat
+                    pendingLng = initialLng
+                    mapPickerCallback = callback
+                    currentScreen = Screen.MapPicker(0)
+                }
+            )
+        }
+        is Screen.MapPicker -> {
+            MapPickerScreen(
+                initialLat = pendingLat,
+                initialLng = pendingLng,
+                onConfirm = { lat, lng ->
+                    mapPickerCallback?.invoke(lat, lng)
+                    mapPickerCallback = null
+                    currentScreen = Screen.Add
+                },
+                onCancel = {
+                    mapPickerCallback = null
+                    currentScreen = Screen.Add
+                }
             )
         }
         is Screen.Settings -> {
