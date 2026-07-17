@@ -1,6 +1,7 @@
 package com.example.triplog
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.webkit.JavascriptInterface
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -9,8 +10,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -20,6 +23,7 @@ actual fun MapPickerScreen(
     onConfirm: (lat: Double, lng: Double) -> Unit,
     onCancel: () -> Unit
 ) {
+    val context = LocalContext.current
     var selectedLat by remember { mutableStateOf(initialLat) }
     var selectedLng by remember { mutableStateOf(initialLng) }
     val stateHolder = remember { MapPickerStateHolder() }
@@ -61,6 +65,16 @@ actual fun MapPickerScreen(
         </html>
     """.trimIndent()
 
+    val webViewRef = remember { mutableStateOf<WebView?>(null) }
+
+    DisposableEffect(context) {
+        val webView = createPickerWebView(context, stateHolder)
+        webViewRef.value = webView
+        onDispose {
+            webView.destroy()
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -78,25 +92,20 @@ actual fun MapPickerScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            AndroidView(
-                factory = { ctx ->
-                    WebView(ctx).apply {
-                        settings.javaScriptEnabled = true
-                        settings.domStorageEnabled = true
-                        settings.setSupportZoom(true)
-                        settings.builtInZoomControls = true
-                        settings.displayZoomControls = false
-                        settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-                        settings.userAgentString = settings.userAgentString.replace("; wv", "")
-                        webViewClient = WebViewClient()
-                        addJavascriptInterface(stateHolder, "AndroidBridge")
-                        loadDataWithBaseURL("https://www.openstreetmap.org", html, "text/html", "UTF-8", null)
+            val wv = webViewRef.value
+            if (wv != null) {
+                AndroidView(
+                    factory = { wv },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    update = { webView ->
+                        val file = File(context.cacheDir, "triplog_picker.html")
+                        file.writeText(html)
+                        webView.loadUrl("file://${file.absolutePath}")
                     }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-            )
+                )
+            }
 
             Surface(
                 tonalElevation = 3.dp,
@@ -125,6 +134,21 @@ actual fun MapPickerScreen(
                 }
             }
         }
+    }
+}
+
+private fun createPickerWebView(context: Context, stateHolder: MapPickerStateHolder): WebView {
+    return WebView(context).apply {
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = true
+        settings.setSupportZoom(true)
+        settings.builtInZoomControls = true
+        settings.displayZoomControls = false
+        settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+        settings.allowFileAccess = true
+        settings.userAgentString = settings.userAgentString.replace("; wv", "")
+        webViewClient = WebViewClient()
+        addJavascriptInterface(stateHolder, "AndroidBridge")
     }
 }
 
