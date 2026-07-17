@@ -5,6 +5,8 @@ import android.content.Context
 import android.location.LocationManager
 import android.os.Bundle
 import android.os.Looper
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,8 +17,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.yandex.mapkit.MapKitFactory
 import com.yandex.mapkit.geometry.Point
 import com.yandex.mapkit.map.CameraPosition
-import com.yandex.mapkit.map.InputListener
-import com.yandex.mapkit.map.Map
+import com.yandex.mapkit.map.CameraListener
+import com.yandex.mapkit.map.CameraUpdateReason
 import com.yandex.mapkit.mapview.MapView
 
 @SuppressLint("MissingPermission")
@@ -48,15 +50,6 @@ actual fun MapPickerScreen(
             mapWindow.map.move(
                 CameraPosition(Point(initialLat, initialLng), 12.0f, 0.0f, 0.0f)
             )
-
-            mapWindow.map.mapObjects.addPlacemark(Point(initialLat, initialLng))
-
-            mapWindow.map.addInputListener(object : InputListener {
-                override fun onMapTap(map: Map, point: Point) {
-                    stateHolder.onLocationPicked(point.latitude, point.longitude)
-                }
-                override fun onMapLongTap(map: Map, point: Point) {}
-            })
         }
     }
 
@@ -86,6 +79,21 @@ actual fun MapPickerScreen(
             }, Looper.getMainLooper())
         } catch (_: SecurityException) {
         }
+    }
+
+    LaunchedEffect(mapView) {
+        mapView.mapWindow.map.addCameraListener(object : CameraListener {
+            override fun onCameraPositionChanged(
+                map: com.yandex.mapkit.map.Map,
+                position: CameraPosition,
+                reason: CameraUpdateReason,
+                finished: Boolean
+            ) {
+                if (finished) {
+                    stateHolder.onLocationPicked(position.target.latitude, position.target.longitude)
+                }
+            }
+        })
     }
 
     DisposableEffect(mapView) {
@@ -129,7 +137,7 @@ actual fun MapPickerScreen(
                         )
                     } else {
                         Text(
-                            "Your location detected. Tap map to adjust.",
+                            "Drag the map to select a location",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
