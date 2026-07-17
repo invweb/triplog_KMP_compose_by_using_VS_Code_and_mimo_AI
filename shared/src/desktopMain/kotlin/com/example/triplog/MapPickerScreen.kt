@@ -1,6 +1,5 @@
 package com.example.triplog
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -12,15 +11,36 @@ import androidx.compose.ui.unit.dp
 import java.awt.Desktop
 import java.io.File
 import java.net.URL
+import java.util.Properties
 import javax.imageio.ImageIO
 import androidx.compose.ui.awt.SwingPanel
-import javax.swing.JPanel
 import javax.swing.JLabel
-import javax.swing.BorderFactory
-import java.awt.BorderLayout
-import java.awt.Color
-import java.awt.Font
-import java.awt.image.BufferedImage
+
+private fun getLastLocationFile(): File {
+    val dir = File(System.getProperty("user.home"), ".trip_log")
+    dir.mkdirs()
+    return File(dir, "last_location.properties")
+}
+
+private fun saveLastLocation(lat: Double, lng: Double) {
+    Properties().apply {
+        setProperty("last_lat", lat.toString())
+        setProperty("last_lng", lng.toString())
+        getLastLocationFile().outputStream().use { store(it, null) }
+    }
+}
+
+private fun getLastLocation(): Pair<Double, Double>? {
+    return try {
+        val props = Properties()
+        getLastLocationFile().inputStream().use { props.load(it) }
+        val lat = props.getProperty("last_lat")?.toDoubleOrNull()
+        val lng = props.getProperty("last_lng")?.toDoubleOrNull()
+        if (lat != null && lng != null) Pair(lat, lng) else null
+    } catch (_: Exception) {
+        null
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,9 +50,13 @@ actual fun MapPickerScreen(
     onConfirm: (lat: Double, lng: Double) -> Unit,
     onCancel: () -> Unit
 ) {
-    var lat by remember { mutableStateOf(initialLat) }
-    var lng by remember { mutableStateOf(initialLng) }
-    var mapImage by remember { mutableStateOf<BufferedImage?>(null) }
+    val lastLocation = remember { getLastLocation() }
+    val startLat = lastLocation?.first ?: initialLat
+    val startLng = lastLocation?.second ?: initialLng
+
+    var lat by remember { mutableStateOf(startLat) }
+    var lng by remember { mutableStateOf(startLng) }
+    var mapImage by remember { mutableStateOf<java.awt.image.BufferedImage?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
     LaunchedEffect(lat, lng) {
@@ -71,19 +95,16 @@ actual fun MapPickerScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(
-                text = "Tap the map in the browser to find coordinates, then enter them below.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (lastLocation != null) {
+                Text(
+                    "Last selected location loaded.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
 
             OutlinedButton(
                 onClick = {
-                    val zoom = 12
-                    val n = Math.pow(2.0, zoom.toDouble())
-                    val x = ((lng + 180) / 360 * n).toInt()
-                    val latRad = Math.toRadians(lat)
-                    val y = ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n).toInt()
                     val html = """
                         <!DOCTYPE html>
                         <html><head><meta charset="utf-8">
@@ -109,9 +130,7 @@ actual fun MapPickerScreen(
 
             if (mapImage != null) {
                 SwingPanel(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(250.dp),
+                    modifier = Modifier.fillMaxWidth().height(250.dp),
                     factory = {
                         val label = JLabel()
                         label.icon = javax.swing.ImageIcon(mapImage!!)
@@ -121,9 +140,7 @@ actual fun MapPickerScreen(
                 )
             } else if (isLoading) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(250.dp),
+                    modifier = Modifier.fillMaxWidth().height(250.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator()
@@ -144,7 +161,10 @@ actual fun MapPickerScreen(
             )
 
             Button(
-                onClick = { onConfirm(lat, lng) },
+                onClick = {
+                    saveLastLocation(lat, lng)
+                    onConfirm(lat, lng)
+                },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Confirm location")
