@@ -83,6 +83,29 @@ fun TripListScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TripDetailScreen(trip: Trip, onBack: () -> Unit, onDelete: (Trip) -> Unit) {
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete trip?") },
+            text = { Text("Are you sure you want to delete \"${trip.title}\"?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteDialog = false
+                    onDelete(trip)
+                }) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -93,7 +116,7 @@ fun TripDetailScreen(trip: Trip, onBack: () -> Unit, onDelete: (Trip) -> Unit) {
                     }
                 },
                 actions = {
-                    IconButton(onClick = { onDelete(trip) }) {
+                    IconButton(onClick = { showDeleteDialog = true }) {
                         Text("✕", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.titleLarge)
                     }
                 }
