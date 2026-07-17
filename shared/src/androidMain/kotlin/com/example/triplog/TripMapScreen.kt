@@ -39,29 +39,32 @@ actual fun TripMapScreen(trips: List<Trip>) {
     }
 
     LaunchedEffect(Unit) {
-        val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        val provider = locationManager.getBestProvider(
-            android.location.Criteria().apply {
-                accuracy = android.location.Criteria.ACCURACY_FINE
-                isCostAllowed = false
-            },
-            true
-        ) ?: LocationManager.GPS_PROVIDER
+        try {
+            val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+            val provider = locationManager.getBestProvider(
+                android.location.Criteria().apply {
+                    accuracy = android.location.Criteria.ACCURACY_FINE
+                    isCostAllowed = false
+                },
+                true
+            ) ?: LocationManager.GPS_PROVIDER
 
-        locationManager.requestSingleUpdate(provider, object : android.location.LocationListener {
-            override fun onLocationChanged(location: android.location.Location) {
-                if (!centered) {
-                    mapView.mapWindow.map.move(
-                        CameraPosition(Point(location.latitude, location.longitude), 12.0f, 0.0f, 0.0f)
-                    )
-                    centered = true
+            locationManager.requestSingleUpdate(provider, object : android.location.LocationListener {
+                override fun onLocationChanged(location: android.location.Location) {
+                    if (!centered) {
+                        mapView.mapWindow.map.move(
+                            CameraPosition(Point(location.latitude, location.longitude), 12.0f, 0.0f, 0.0f)
+                        )
+                        centered = true
+                    }
                 }
-            }
-            @Deprecated("Deprecated")
-            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
-            override fun onProviderEnabled(provider: String) {}
-            override fun onProviderDisabled(provider: String) {}
-        }, Looper.getMainLooper())
+                @Deprecated("Deprecated")
+                override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+                override fun onProviderEnabled(provider: String) {}
+                override fun onProviderDisabled(provider: String) {}
+            }, Looper.getMainLooper())
+        } catch (_: SecurityException) {
+        }
     }
 
     DisposableEffect(mapView) {
