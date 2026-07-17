@@ -3,6 +3,17 @@ plugins {
     kotlin("android")
 }
 
+import java.util.Properties
+
+fun getMapkitApiKey(): String {
+    val properties = Properties()
+    val file = rootProject.file("local.properties")
+    if (file.exists()) {
+        file.inputStream().use { properties.load(it) }
+    }
+    return properties.getProperty("MAPKIT_API_KEY", "")
+}
+
 android {
     namespace = "com.example.triplog.android"
     compileSdk = 34
@@ -13,6 +24,8 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
+
+        buildConfigField("String", "MAPKIT_API_KEY", "\"${getMapkitApiKey()}\"")
     }
 
     buildTypes {
@@ -32,6 +45,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     composeOptions {
@@ -48,6 +62,7 @@ android {
 dependencies {
     implementation(project(":shared"))
     implementation("androidx.room:room-runtime:2.6.1")
+    implementation("com.yandex.android:maps.mobile:4.3.0-lite")
     implementation("androidx.activity:activity-compose:1.8.2")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
     implementation("androidx.core:core-ktx:1.12.0")

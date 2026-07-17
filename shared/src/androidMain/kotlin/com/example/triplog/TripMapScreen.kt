@@ -1,46 +1,52 @@
 package com.example.triplog
 
 import android.annotation.SuppressLint
-import android.webkit.WebSettings
-import android.webkit.WebView
-import android.webkit.WebViewClient
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import com.yandex.mapkit.MapKitFactory
+import com.yandex.mapkit.geometry.Point
+import com.yandex.mapkit.map.CameraPosition
+import com.yandex.mapkit.mapview.MapView
+import com.yandex.runtime.image.ImageProvider
 
-@SuppressLint("SetJavaScriptEnabled")
 @Composable
 actual fun TripMapScreen(trips: List<Trip>) {
-    val centerLat = if (trips.isNotEmpty()) trips.map { it.lat }.average() else 55.75
-    val centerLng = if (trips.isNotEmpty()) trips.map { it.lng }.average() else 37.62
+    val context = LocalContext.current
 
-    val markersParam = if (trips.isNotEmpty()) {
-        trips.joinToString("~") { "${it.lng},${it.lat},pm2rdm${it.title}" }
-    } else ""
+    LaunchedEffect(Unit) {
+        MapKitFactory.initialize(context)
+        MapKitFactory.getInstance().onStart()
+    }
 
-    val url = if (trips.isNotEmpty()) {
-        "https://yandex.ru/maps/?ll=${centerLng},${centerLat}&z=5&pt=${markersParam}"
-    } else {
-        "https://yandex.ru/maps/?ll=${centerLng},${centerLat}&z=5"
+    val mapView = remember {
+        MapView(context).apply {
+            val centerLat = if (trips.isNotEmpty()) trips.map { it.lat }.average() else 55.75
+            val centerLng = if (trips.isNotEmpty()) trips.map { it.lng }.average() else 37.62
+
+            mapWindow.map.move(
+                CameraPosition(Point(centerLat, centerLng), 5.0f, 0.0f, 0.0f)
+            )
+
+            trips.forEach { trip ->
+                mapWindow.map.mapObjects.addPlacemark(Point(trip.lat, trip.lng))
+            }
+        }
+    }
+
+    DisposableEffect(mapView) {
+        MapKitFactory.getInstance().onStart()
+        mapView.onStart()
+        onDispose {
+            mapView.onStop()
+            MapKitFactory.getInstance().onStop()
+        }
     }
 
     AndroidView(
-        factory = { ctx ->
-            WebView(ctx).apply {
-                settings.javaScriptEnabled = true
-                settings.domStorageEnabled = true
-                settings.setSupportZoom(true)
-                settings.builtInZoomControls = true
-                settings.displayZoomControls = false
-                settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-                webViewClient = WebViewClient()
-                loadUrl(url)
-            }
-        },
-        modifier = Modifier.fillMaxWidth().height(400.dp),
-        update = { it.loadUrl(url) }
+        factory = { mapView },
+        modifier = Modifier.fillMaxSize()
     )
 }

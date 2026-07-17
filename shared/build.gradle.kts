@@ -5,6 +5,17 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+import java.util.Properties
+
+fun getMapkitApiKey(): String {
+    val properties = Properties()
+    val file = rootProject.file("local.properties")
+    if (file.exists()) {
+        file.inputStream().use { properties.load(it) }
+    }
+    return properties.getProperty("MAPKIT_API_KEY", "")
+}
+
 kotlin {
     androidTarget {
         compilations.all {
@@ -32,8 +43,8 @@ kotlin {
             dependencies {
                 implementation("androidx.room:room-runtime:2.6.1")
                 implementation("androidx.room:room-ktx:2.6.1")
-                implementation("org.osmdroid:osmdroid-android:6.1.18")
                 implementation("com.google.android.material:material:1.11.0")
+                implementation("com.yandex.android:maps.mobile:4.3.0-lite")
             }
         }
 
@@ -59,6 +70,11 @@ android {
 
     defaultConfig {
         minSdk = 26
+        buildConfigField("String", "MAPKIT_API_KEY", "\"${getMapkitApiKey()}\"")
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     compileOptions {
